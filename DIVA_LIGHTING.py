@@ -175,42 +175,11 @@ def parse_light(file_path: str):
     return values_bone
 
 
-def sharp_interpolation(times, length, offset):
-    new_list = []
-
-    for i in range(1, length):
-        for idx in range(1, len(times)):
-            a, b = times[idx - 1], times[idx]
-
-            if a == i and b == i:
-                continue
-
-            elif a <= i <= b:
-                new_list.append([i - offset, idx - 1])
-                break
-
-    # new_list.append([new_list[-1][0] + 1, len(times) - 1])
-
-    remove = []
-    for idx in range(1, len(new_list) - 1):
-        a, b, c = new_list[idx - 1], new_list[idx], new_list[idx + 1]
-
-        if a[1] == b[1] and b[1] == c[1]:
-            remove.append(idx)
-
-    stuff = []
-    for idx in range(len(new_list)):
-        if idx not in remove:
-            stuff.append(new_list[idx])
-
-    return stuff
-
-
-def parse_dsc(dsc_input: str, farc_content: str, frame_offset=1):
+def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
     while True:
-        fps = user_input("Input your Framerate (30/60): ", is_int=True)
+        fps = user_input("Input your Framerate (e.g. 30 or 60): ", is_int=True)
 
-        if 0 < fps < 120:
+        if 0 < fps:
             break
 
     with open(dsc_input, "r", encoding="UTF-8") as dsc_file:
@@ -233,16 +202,26 @@ def parse_dsc(dsc_input: str, farc_content: str, frame_offset=1):
 
             match name:
                 case "TIME":
-                    current_frame = int(args[0] / 100000 * fps) + frame_offset
+                    if args[0]:
+                        current_frame = int(args[0] / 100000 * fps) + frame_offset
+
+                    else:
+                        current_frame = 0
 
                 case "CHANGE_FIELD":
                     glow = None
                     light_bone = None
 
+                    # print(current_frame)
+                    # print(f"_c{args[0]:03}.txt")
+
+                    default_glow = []
+                    default_light = []
+
                     for file in os.listdir(farc_content):
                         file = file.lower()
 
-                        if file.endswith(f"_c{args[0]:03}.txt"):
+                        if file.endswith(f"pv{mv_id:03}_c{args[0]:03}.txt"):
                             if file.startswith("glow_pv"):
                                 glow = parse_glow(os.path.join(farc_content, file))
                                 last_glow = glow
@@ -251,8 +230,63 @@ def parse_dsc(dsc_input: str, farc_content: str, frame_offset=1):
                                 light_bone = parse_light(os.path.join(farc_content, file))
                                 last_light_bone = light_bone
 
+                        if not last_glow:
+                            if file.startswith(f"glow_pv{mv_id:03}s") and file.endswith(".txt"):
+                                default_glow.append(file)
+
+                        if not last_light_bone:
+                            if file.startswith(f"light_pv{mv_id:03}s") and file.endswith(".txt"):
+                                default_light.append(file)
+
+                    if not glow and not last_glow:
+                        if default_glow:
+                            if len(default_glow) == 1:
+                                last_glow = parse_glow(os.path.join(farc_content, default_glow[0]))
+
                             else:
-                                raise AssertionError(f"Idk what this file is {file}")
+                                print("I found multiple possible default glow files!")
+                                print("Pick an index of a lighting that most likely appears first.")
+                                print("It's likely that it will be the file with s01 in its name.")
+                                print({x: y for x, y in enumerate(default_glow)})
+
+                                while True:
+                                    try:
+                                        result = default_glow[
+                                            user_input("Glow index: ", is_int=True)
+                                        ]
+                                        last_glow = parse_glow(os.path.join(farc_content, result))
+                                        break
+
+                                    except IndexError:
+                                        print("Can't pick a file with given index.")
+
+                        else:
+                            raise FileNotFoundError
+
+                    if not light_bone and not last_light_bone:
+                        if default_light:
+                            if len(default_light) == 1:
+                                last_light_bone = parse_light(os.path.join(farc_content, default_light[0]))
+
+                            else:
+                                print("I found multiple possible default light files!")
+                                print("Pick an index of a lighting that most likely appears first.")
+                                print("It's likely that it will be the file with s01 in its name.")
+                                print({x: y for x, y in enumerate(default_light)})
+
+                                while True:
+                                    try:
+                                        result = default_light[
+                                            user_input("Light index: ", is_int=True)
+                                        ]
+                                        last_light_bone = parse_light(os.path.join(farc_content, result))
+                                        break
+
+                                    except IndexError:
+                                        print("Can't pick a file with given index.")
+
+                        else:
+                            raise FileNotFoundError
 
                     if not glow and last_glow:
                         glow = last_glow
@@ -299,22 +333,27 @@ def parse_dsc(dsc_input: str, farc_content: str, frame_offset=1):
                         )
                     )
 
-        vmd_parser.write_vmd("PV_LIGHT.vmd", vmd)
-    #Love ya Kimoo, mwa mwa mwa!!
+        vmd_parser.write_vmd(f"PV_LIGHT_{mv_id:03}.vmd", vmd)
+    # Love ya Kimoo, mwa mwa mwa!!
+    # Love ya too, mwa mwa mwa!!!
+
 
 if __name__ == "__main__":
     debug = False
 
     if debug:
         parse_dsc(
-            dsc_input="DSC_Input.txt",
+            dsc_input="DSC_Input2.txt",
             farc_content="FARC_CONTENT",
+            mv_id=19,
             frame_offset=1
         )
     else:
         parse_dsc(
             dsc_input=user_input("Enter the parsed DSC file (.txt): ", is_file=True),
             farc_content=user_input("Drop the folder with the FARC lighting: ", is_folder=True),
+            mv_id=user_input("What's the song ID?: ", is_int=True),
             frame_offset=1
         )
-    print("The output have been generated correctly.")
+
+    input("The output have been generated correctly. Press ENTER to exit...")
