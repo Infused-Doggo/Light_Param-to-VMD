@@ -184,8 +184,7 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
 
     with open(dsc_input, "r", encoding="UTF-8") as dsc_file:
         current_frame = 0
-        morphs = {}
-        bones = {}
+        morphs, bones = {}, {}
 
         vmd = vmd_struct.Vmd(
             vmd_struct.VmdHeader(2, "Controller"), [], [], [], [], [], []
@@ -193,6 +192,8 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
 
         last_glow = []
         last_light_bone = []
+
+        fallback_glow, fallback_light = [], []
 
         for line in dsc_file.read().split("\n"):
             if not line:
@@ -211,9 +212,6 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                 case "CHANGE_FIELD":
                     glow = None
                     light_bone = None
-
-                    # print(current_frame)
-                    # print(f"_c{args[0]:03}.txt")
 
                     default_glow = []
                     default_light = []
@@ -234,10 +232,17 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                             if file.startswith(f"glow_pv{mv_id:03}s") and file.endswith(".txt"):
                                 default_glow.append(file)
 
+                            if file == "glow_tst.txt":
+                                fallback_glow = parse_glow(os.path.join(farc_content, file))
+
                         if not last_light_bone:
                             if file.startswith(f"light_pv{mv_id:03}s") and file.endswith(".txt"):
                                 default_light.append(file)
 
+                            if file == "light_tst.txt":
+                                fallback_light = parse_light(os.path.join(farc_content, file))
+
+                    # If nothing exists, pick default
                     if not glow and not last_glow:
                         if default_glow:
                             if len(default_glow) == 1:
@@ -288,6 +293,18 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                         else:
                             raise FileNotFoundError
 
+                    # If default doesn't exist, pick test
+                    if not last_glow and fallback_glow:
+                        last_glow = fallback_glow
+                    else:
+                        raise FileNotFoundError
+
+                    if not last_light_bone and fallback_light:
+                        last_light_bone = fallback_light
+                    else:
+                        raise FileNotFoundError
+
+                    # No current file, replace with last
                     if not glow and last_glow:
                         glow = last_glow
 
@@ -356,4 +373,4 @@ if __name__ == "__main__":
             frame_offset=1
         )
 
-    input("The output have been generated correctly. Press ENTER to exit...")
+    input("The output have been generated correctly. Press ENTER to exit... ")
