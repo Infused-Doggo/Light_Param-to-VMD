@@ -294,15 +294,21 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                             raise FileNotFoundError
 
                     # If default doesn't exist, pick test
-                    if not last_glow and fallback_glow:
-                        last_glow = fallback_glow
-                    else:
-                        raise FileNotFoundError
+                    if not last_glow:
+                        if fallback_glow:
+                            last_glow = fallback_glow
+                        else:
+                            raise FileNotFoundError(
+                                "Please supply your farc content with a test stage glow file."
+                            )
 
-                    if not last_light_bone and fallback_light:
-                        last_light_bone = fallback_light
-                    else:
-                        raise FileNotFoundError
+                    if not last_light_bone:
+                        if fallback_light:
+                            last_light_bone = fallback_light
+                        else:
+                            raise FileNotFoundError(
+                                "Please supply your farc content with a test stage light file."
+                            )
 
                     # No current file, replace with last
                     if not glow and last_glow:
@@ -373,4 +379,4 @@ if __name__ == "__main__":
             frame_offset=1
         )
 
-    input("The output have been generated correctly. Press ENTER to exit... ")
+    input("The output have been generated correctly. Press ENTER to exit...")
