@@ -104,16 +104,14 @@ def parse_glow(file_path: str):
                     pass
 
                 case "sigma":
-                    # values["Sigma_X +"] = line[1]
-                    # values["Sigma_Y +"] = line[2]
-                    # values["Sigma_Z +"] = line[3]
-                    pass
+                    values["Radio_R +"] = line[1]
+                    values["Radio_G +"] = line[2]
+                    values["Radio_B +"] = line[3]
 
                 case "intensity":
-                    # values["Intens_X +"] = line[1]
-                    # values["Intens_Y +"] = line[2]
-                    # values["Intens_Z +"] = line[3]
-                    pass
+                    values["Intensity_R +"] = line[1]
+                    values["Intensity_G +"] = line[2]
+                    values["Intensity_B +"] = line[3]
 
                 case _:
                     everything = {
@@ -163,7 +161,7 @@ def parse_light(file_path: str):
                         "ambient": "Ambient",
                         "diffuse": "Diffuse",
                         "specular": "Specular",
-                        "position": "Direction"
+                        "position": "Position"
                     }
 
                     if line[0] in everything and current_light_type:
@@ -184,7 +182,8 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
 
     with open(dsc_input, "r", encoding="UTF-8") as dsc_file:
         current_frame = 0
-        morphs, bones = {}, {}
+        morphs = {}
+        bones = {}
 
         vmd = vmd_struct.Vmd(
             vmd_struct.VmdHeader(2, "Controller"), [], [], [], [], [], []
@@ -192,8 +191,6 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
 
         last_glow = []
         last_light_bone = []
-
-        fallback_glow, fallback_light = [], []
 
         for line in dsc_file.read().split("\n"):
             if not line:
@@ -212,6 +209,9 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                 case "CHANGE_FIELD":
                     glow = None
                     light_bone = None
+
+                    # print(current_frame)
+                    # print(f"_c{args[0]:03}.txt")
 
                     default_glow = []
                     default_light = []
@@ -232,17 +232,10 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                             if file.startswith(f"glow_pv{mv_id:03}s") and file.endswith(".txt"):
                                 default_glow.append(file)
 
-                            if file == "glow_tst.txt":
-                                fallback_glow = parse_glow(os.path.join(farc_content, file))
-
                         if not last_light_bone:
                             if file.startswith(f"light_pv{mv_id:03}s") and file.endswith(".txt"):
                                 default_light.append(file)
 
-                            if file == "light_tst.txt":
-                                fallback_light = parse_light(os.path.join(farc_content, file))
-
-                    # If nothing exists, pick default
                     if not glow and not last_glow:
                         if default_glow:
                             if len(default_glow) == 1:
@@ -293,24 +286,6 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                         else:
                             raise FileNotFoundError
 
-                    # If default doesn't exist, pick test
-                    if not last_glow:
-                        if fallback_glow:
-                            last_glow = fallback_glow
-                        else:
-                            raise FileNotFoundError(
-                                "Please supply your farc content with a test stage glow file."
-                            )
-
-                    if not last_light_bone:
-                        if fallback_light:
-                            last_light_bone = fallback_light
-                        else:
-                            raise FileNotFoundError(
-                                "Please supply your farc content with a test stage light file."
-                            )
-
-                    # No current file, replace with last
                     if not glow and last_glow:
                         glow = last_glow
 
@@ -350,11 +325,22 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
 
             for i in repeat:
                 for name, (pos, rot) in value.items():
+
+                    if name in ["Chara_Position", "Stage_Position"]:
+                        pos = [x * 12.5 for x in pos]
+                        rot = [0, 0, 0]
+
                     vmd.boneframes.append(
                         vmd_struct.VmdBoneFrame(
                             f=i, name=name, pos=pos, rot=rot, phys_off=False
                         )
                     )
+                    
+        vmd.morphframes.append(
+            vmd_struct.VmdMorphFrame(
+                name="Override", f=0, val=1
+            )
+        )
 
         vmd_parser.write_vmd(f"PV_LIGHT_{mv_id:03}.vmd", vmd)
     # Love ya Kimoo, mwa mwa mwa!!
