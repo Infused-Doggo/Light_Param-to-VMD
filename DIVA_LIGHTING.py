@@ -327,7 +327,7 @@ def parse_dsc(dsc_input: str, farc_content: str, mv_id=1, frame_offset=1):
                 for name, (pos, rot) in value.items():
 
                     if name in ["Chara_Position", "Stage_Position"]:
-                        pos = [x * 12.5 for x in pos]
+                        pos = [x * 36.81456 for x in pos]
                         rot = [0, 0, 0]
 
                     vmd.boneframes.append(
